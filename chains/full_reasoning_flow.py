@@ -2,6 +2,8 @@ from langchain_core.runnables import RunnableSequence, RunnableLambda
 from .sequential_chain import sequential_chain
 from .parallel_chain import parallel_chain
 from .merge_chain import merge_chain
+from .review_chain import review_chain
+from .feedback_chain import feedback_chain
 
 
 # full resoning pipeline that carries state forward
@@ -20,6 +22,24 @@ reasoning_flow = RunnableSequence(
     
     # merge all into single reasoning text
     merge_chain,
+    
+    # review chain to get customer feedback
+    RunnableLambda(lambda x: {
+        **x,
+        "review": review_chain({
+            "plan": x["plan"],
+            "summary": x["summary"]
+        })
+    }),
+    
+    # analyze feedback
+    RunnableLambda(lambda x: {
+        **x,
+        "feedback": feedback_chain.invoke({
+            "review": x["review"],
+            "plan": x["plan"]
+        })
+    }),
     
     # final structured output
     RunnableLambda(lambda x: f"""
@@ -41,6 +61,14 @@ reasoning_flow = RunnableSequence(
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 Plan:
 {x['plan']}
-"""
 
-    ))
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💬 Review:
+{x['review']}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📢 Feedback:
+{x['feedback']}
+─────────────────────────────
+""")
+)
